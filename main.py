@@ -1,1 +1,1 @@
-this is just to make gitbum say 100% python
+this is just to make github say 100% python
