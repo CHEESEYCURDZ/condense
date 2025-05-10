@@ -9,5 +9,5 @@
 - **Set Default Output Folder**: Choose a folder where compressed videos will be saved by default.
 
 ## Installation
-1. **Download** the latest Condense release for Windows from the [Releases page](https://github.com/TheCondenseTeam/condense/releases/tag/v0.2.1)
+1. **Download** the latest Condense release for Windows from the [Releases page.](https://github.com/TheCondenseTeam/condense/releases/tag/0.2.2)
 4. **Double-click** `condense.exe` to launch the application.
