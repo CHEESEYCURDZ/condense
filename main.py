@@ -21,7 +21,7 @@ DEFAULT_SETTINGS = {
     "theme_color": "#1f6aa5",
     "compression_level": "Balanced",
     "preset": "Medium",
-}
+} 
 
 PRESET_PROFILES = {
     "Ultra": {
