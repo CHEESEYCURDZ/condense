@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import customtkinter as ctk
 from tkinterdnd2 import DND_FILES, TkinterDnD
@@ -9,7 +10,12 @@ import threading
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
 
-SETTINGS_PATH = os.path.join(os.path.dirname(__file__), "condense_settings.json")
+def get_app_folder():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+SETTINGS_PATH = os.path.join(get_app_folder(), "condense_settings.json")
 
 DEFAULT_SETTINGS = {
     "frame_limit": "60",
@@ -20,42 +26,14 @@ DEFAULT_SETTINGS = {
     "output_folder": "",
     "theme_color": "#1f6aa5",
     "compression_level": "Balanced",
-    "preset": "Medium",
-} 
+    "preset": "Medium"
+}
 
-PRESET_PROFILES = {
-    "Ultra": {
-        "bitrate": "8000k",
-        "frame_limit": "60",
-        "resolution": "1080p",
-        "compression_level": "High Quality",
-        "two_pass": True,
-        "audio_enabled": True,
-    },
-    "High": {
-        "bitrate": "5000k",
-        "frame_limit": "60",
-        "resolution": "1080p",
-        "compression_level": "Balanced",
-        "two_pass": False,
-        "audio_enabled": True,
-    },
-    "Medium": {
-        "bitrate": "2500k",
-        "frame_limit": "30",
-        "resolution": "720p",
-        "compression_level": "Balanced",
-        "two_pass": False,
-        "audio_enabled": True,
-    },
-    "Low": {
-        "bitrate": "1000k",
-        "frame_limit": "30",
-        "resolution": "480p",
-        "compression_level": "Fast",
-        "two_pass": False,
-        "audio_enabled": False,
-    },
+PRESET_MAP = {
+    "Ultra": {"bitrate": "5000k", "frame_limit": "60", "resolution": "1080p", "compression_level": "High Quality", "two_pass": True},
+    "High":  {"bitrate": "3000k", "frame_limit": "60", "resolution": "1080p", "compression_level": "Balanced", "two_pass": True},
+    "Medium":{"bitrate": "2000k", "frame_limit": "60", "resolution": "720p", "compression_level": "Balanced", "two_pass": False},
+    "Low":   {"bitrate": "1000k", "frame_limit": "30", "resolution": "480p", "compression_level": "Fast", "two_pass": False}
 }
 
 class CondenseApp(TkinterDnD.Tk):
@@ -69,7 +47,6 @@ class CondenseApp(TkinterDnD.Tk):
         self.configure(bg="#121212")
 
         self.file_path = None
-
         self.make_title_bar()
 
         self.container = ctk.CTkFrame(self, fg_color="#121212", corner_radius=0)
@@ -159,7 +136,7 @@ class CondenseApp(TkinterDnD.Tk):
 
         output_folder = self.settings.get("output_folder")
         output_path = os.path.join(output_folder, os.path.splitext(os.path.basename(self.file_path))[0] + "_compressed.mp4")
-        ffmpeg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ffmpeg.exe")
+        ffmpeg_path = os.path.join(get_app_folder(), "ffmpeg.exe")
 
         if not os.path.exists(ffmpeg_path):
             self.status.configure(text="FFmpeg not found!")
@@ -192,9 +169,9 @@ class CondenseApp(TkinterDnD.Tk):
             subprocess.run(cmd, check=True)
             original_size = os.path.getsize(self.file_path)
             compressed_size = os.path.getsize(output_path)
-            original_mb = round(original_size / (1024 * 1024), 2)
-            compressed_mb = round(compressed_size / (1024 * 1024), 2)
-            self.status.configure(text=f"Compressed to: {compressed_mb}MB from: {original_mb}MB")
+            self.status.configure(
+                text=f"Compressed to: {round(compressed_size / (1024 * 1024), 2)}MB "
+                     f"from: {round(original_size / (1024 * 1024), 2)}MB")
         except subprocess.CalledProcessError:
             self.status.configure(text="Compression failed.")
         finally:
@@ -217,71 +194,62 @@ class CondenseApp(TkinterDnD.Tk):
         ctk.CTkButton(self.settings_window, text="Select Folder", command=self.select_output_folder).grid(row=1, column=1, padx=20, pady=5, sticky="w")
 
         ctk.CTkLabel(self.settings_window, text="Preset").grid(row=2, column=0, padx=20, pady=5, sticky="w")
-        self.preset_menu = ctk.CTkOptionMenu(self.settings_window, values=list(PRESET_PROFILES.keys()),
-                                             variable=ctk.StringVar(value=self.settings["preset"]),
-                                             command=lambda v: self.update_setting("preset", v))
-        self.preset_menu.grid(row=2, column=1, padx=20, pady=5, sticky="w")
+        self.preset_var = ctk.StringVar(value=self.settings["preset"])
+        ctk.CTkOptionMenu(self.settings_window, values=["Ultra", "High", "Medium", "Low"],
+                          variable=self.preset_var, command=self.apply_preset).grid(row=2, column=1, padx=20, pady=5, sticky="w")
 
         ctk.CTkLabel(self.settings_window, text="Resolution").grid(row=3, column=0, padx=20, pady=5, sticky="w")
-        self.resolution_menu = ctk.CTkOptionMenu(self.settings_window, values=["1080p", "720p", "480p"],
-                                                 variable=ctk.StringVar(value=self.settings["resolution"]),
-                                                 command=lambda v: self.update_setting("resolution", v))
-        self.resolution_menu.grid(row=3, column=1, padx=20, pady=5, sticky="w")
+        self.resolution_var = ctk.StringVar(value=self.settings["resolution"])
+        ctk.CTkOptionMenu(self.settings_window, values=["1080p", "720p", "480p"],
+                          variable=self.resolution_var, command=lambda v: self.update_setting("resolution", v)).grid(row=3, column=1, padx=20, pady=5, sticky="w")
 
         ctk.CTkLabel(self.settings_window, text="Frame Limit").grid(row=4, column=0, padx=20, pady=5, sticky="w")
-        self.frame_limit_menu = ctk.CTkOptionMenu(self.settings_window, values=["None", "30", "60"],
-                                                  variable=ctk.StringVar(value=self.settings["frame_limit"]),
-                                                  command=lambda v: self.update_setting("frame_limit", v))
-        self.frame_limit_menu.grid(row=4, column=1, padx=20, pady=5, sticky="w")
+        self.frame_limit_var = ctk.StringVar(value=self.settings["frame_limit"])
+        ctk.CTkOptionMenu(self.settings_window, values=["None", "30", "60"],
+                          variable=self.frame_limit_var, command=lambda v: self.update_setting("frame_limit", v)).grid(row=4, column=1, padx=20, pady=5, sticky="w")
 
         ctk.CTkLabel(self.settings_window, text="Bitrate").grid(row=5, column=0, padx=20, pady=5, sticky="w")
-        self.bitrate_entry = ctk.CTkEntry(self.settings_window)
-        self.bitrate_entry.insert(0, self.settings["bitrate"])
-        self.bitrate_entry.grid(row=5, column=1, padx=20, pady=5, sticky="w")
+        self.bitrate_var = ctk.StringVar(value=self.settings["bitrate"])
+        ctk.CTkEntry(self.settings_window, textvariable=self.bitrate_var).grid(row=5, column=1, padx=20, pady=5, sticky="w")
 
-        self.two_pass_check = ctk.CTkCheckBox(self.settings_window, text="Enable 2-Pass", variable=ctk.BooleanVar(value=self.settings["two_pass"]))
-        self.two_pass_check.grid(row=6, column=0, padx=20, pady=5, sticky="w", columnspan=2)
+        self.two_pass_var = ctk.BooleanVar(value=self.settings["two_pass"])
+        ctk.CTkCheckBox(self.settings_window, text="Enable 2-Pass", variable=self.two_pass_var).grid(row=6, column=0, padx=20, pady=5, sticky="w", columnspan=2)
 
-        self.audio_check = ctk.CTkCheckBox(self.settings_window, text="Enable Audio", variable=ctk.BooleanVar(value=self.settings["audio_enabled"]))
-        self.audio_check.grid(row=7, column=0, padx=20, pady=5, sticky="w", columnspan=2)
+        self.audio_enabled_var = ctk.BooleanVar(value=self.settings["audio_enabled"])
+        ctk.CTkCheckBox(self.settings_window, text="Enable Audio", variable=self.audio_enabled_var).grid(row=7, column=0, padx=20, pady=5, sticky="w", columnspan=2)
 
         ctk.CTkLabel(self.settings_window, text="Compression Level").grid(row=8, column=0, padx=20, pady=5, sticky="w")
-        self.compression_menu = ctk.CTkOptionMenu(self.settings_window, values=["Fast", "Balanced", "High Quality"],
-                                                  variable=ctk.StringVar(value=self.settings["compression_level"]),
-                                                  command=lambda v: self.update_setting("compression_level", v))
-        self.compression_menu.grid(row=8, column=1, padx=20, pady=5, sticky="w")
+        self.compression_level_var = ctk.StringVar(value=self.settings["compression_level"])
+        ctk.CTkOptionMenu(self.settings_window, values=["Fast", "Balanced", "High Quality"],
+                          variable=self.compression_level_var, command=lambda v: self.update_setting("compression_level", v)).grid(row=8, column=1, padx=20, pady=5, sticky="w")
 
         ctk.CTkButton(self.settings_window, text="Save Settings", command=self.save_settings).grid(row=9, column=0, columnspan=2, padx=20, pady=10)
 
+    def apply_preset(self, preset_name):
+        self.settings["preset"] = preset_name
+        preset = PRESET_MAP.get(preset_name)
+        if preset:
+            self.settings.update(preset)
+            self.bitrate_var.set(preset["bitrate"])
+            self.frame_limit_var.set(preset["frame_limit"])
+            self.resolution_var.set(preset["resolution"])
+            self.compression_level_var.set(preset["compression_level"])
+            self.two_pass_var.set(preset["two_pass"])
+
     def update_setting(self, key, value):
         self.settings[key] = value
-        if key == "preset" and value in PRESET_PROFILES:
-            self.apply_preset(PRESET_PROFILES[value])
-
-    def apply_preset(self, preset_values):
-        self.settings.update(preset_values)
-        self.bitrate_entry.delete(0, "end")
-        self.bitrate_entry.insert(0, self.settings["bitrate"])
-        self.resolution_menu.set(self.settings["resolution"])
-        self.frame_limit_menu.set(self.settings["frame_limit"])
-        self.compression_menu.set(self.settings["compression_level"])
-
-        if self.settings["two_pass"]:
-            self.two_pass_check.select()
-        else:
-            self.two_pass_check.deselect()
-
-        if self.settings["audio_enabled"]:
-            self.audio_check.select()
-        else:
-            self.audio_check.deselect()
 
     def save_settings(self):
-        self.settings["bitrate"] = self.bitrate_entry.get()
-        self.settings["two_pass"] = self.two_pass_check.get()
-        self.settings["audio_enabled"] = self.audio_check.get()
+        self.settings["bitrate"] = self.bitrate_var.get()
+        self.settings["frame_limit"] = self.frame_limit_var.get()
+        self.settings["resolution"] = self.resolution_var.get()
+        self.settings["compression_level"] = self.compression_level_var.get()
+        self.settings["audio_enabled"] = self.audio_enabled_var.get()
+        self.settings["two_pass"] = self.two_pass_var.get()
+
         with open(SETTINGS_PATH, "w") as f:
             json.dump(self.settings, f, indent=4)
+
         self.settings_window.destroy()
 
     def select_output_folder(self):
