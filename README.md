@@ -4,4 +4,5 @@
 
 ## Installation
 1. **Download** the latest Condense release for Windows from the [Releases page.](https://github.com/TheCondenseTeam/condense/releases/)
-4. **Double-click** `condense.exe` to launch the application.
+2. **Extract** the file contents, and open the folder.
+3. **Double-click** `condense.exe` to launch the application.
